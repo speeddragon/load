@@ -1,0 +1,4 @@
+%{
+  "bear": {:hex, :bear, "1.0.0", "430419c1126b477686cde843e88ba0f2c7dc5cdf0881c677500074f704339a99", [:rebar3], [], "hexpm", "157b67901adf84ff0da6eae035ca1292a0ac18aa55148154d8c582b2c68959db"},
+  "folsom": {:hex, :folsom, "1.0.0", "50ecc998d2149939f1d5e0aa3e32788f8ed16a58e390d81b5c0be4cc4ef25589", [:rebar3], [{:bear, "1.0.0", [hex: :bear, repo: "hexpm", optional: false]}], "hexpm", "dd6ab97278e94f9e4cfc43e188224a7b8c7eaec0dd2e935007005177f3eebb0e"},
+}
