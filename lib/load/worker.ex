@@ -138,7 +138,7 @@ defmodule Load.Worker do
 
       # do something with response if necessary (e.g. schedule a verification)
 
-      Process.send_after(sleep_time, self(), :loop)
+      Process.send_after(self(), :loop, sleep_time)
 
       state = Map.put(state, :stats_entries, stats_entries + 1)
       {:noreply, state}
@@ -149,7 +149,7 @@ defmodule Load.Worker do
 
     Logger.error("Error (#{inspect(self())}) #{inspect(reason)}")
 
-    Process.send_after(sleep_time, self(), :loop)
+    Process.send_after(self(), :loop, sleep_time)
 
     state = Map.put(state, :stats_errors, stats_errors + 1)
     {:noreply, state}
