@@ -14,15 +14,15 @@ defmodule Load.Stats do
     :ets.new(@stats_table, [:named_table, :public])
   end
 
-  def register_worker do
+  def register_worker(pid) do
     # Write down start time and zeroes
     # TODO: Trap linked worker exits and delete from stats
-    :ets.insert(@stats_table, {self(), @empty_stats})
+    :ets.insert(@stats_table, {pid, @empty_stats})
   end
 
 
-  # @doc NOTE: To be called from worker, not from controller (soak_runner)
-  def update_stats(%{
+  # @doc NOTE: To be called from worker, not from controller (runner)
+  def update_stats(pid, %{
     req_count: req_count,
     entry_count: entry_count,
     error_count: error_count,
@@ -33,7 +33,7 @@ defmodule Load.Stats do
         entry_count: total_entries,
         error_count: total_errors
       } =
-        case :ets.lookup(@stats_table, self()) do
+        case :ets.lookup(@stats_table, pid) do
           [{_k, stats}] -> stats
           [] -> @empty_stats
         end
@@ -43,7 +43,7 @@ defmodule Load.Stats do
       :folsom_metrics.notify({:request_rate, request_rate})
       :folsom_metrics.notify({:ingestion_rate, ingestion_rate})
       :folsom_metrics.notify({:error_rate, error_rate})
-      :ets.insert(@stats_table, {self(), %{
+      :ets.insert(@stats_table, {pid, %{
         req_count: total_requests + req_count,
         entry_count: total_entries + entry_count,
         error_count: total_errors + error_count,
@@ -58,7 +58,7 @@ defmodule Load.Stats do
   def get_stats do
   # Delete records older than 30 seconds
   #    TooOld = :ets.fun2ms(
-  #        fun({_, #worker_stats{last_update_ms = LU}}) when LU < (DateTime.utc_now |> DateTime.to_unix(:millisecond) - 30000) ->
+  #        fun({_, #worker_stats{last_update_ms = LU}}) when LU < (DateTime.utc_now |> DateTime.to_unix(:millisecond) - :timer.seconds(30)) ->
   #            true
   #        end),
   #    :ets.select_delete(@stats_table, TooOld),
@@ -67,7 +67,7 @@ defmodule Load.Stats do
     #Collect sum of other stats
     now_ms = DateTime.utc_now |> DateTime.to_unix(:millisecond)
     sum_stats = Enum.reduce(:ets.tab2list(@stats_table), Map.put(@empty_stats, :last_update_ms, -1),
-        fn ({_k, %{last_update_ms: lu} = ws}, acc) when now_ms - lu < 60000 -> # use stats at most 1 min old
+        fn ({_k, %{last_update_ms: lu} = ws}, acc) when now_ms - lu < :timer.seconds(60) -> # use stats at most 1 min old
               Map.merge(ws,acc, fn _k, v1, v2 ->
                 v1 + v2
               end)
@@ -87,7 +87,7 @@ defmodule Load.Stats do
 
   defp calculate_rate(duration_ms, count) do
     if duration_ms > 0 do
-      count * 1000 / duration_ms
+      count * :timer.seconds(1) / duration_ms
     else
       0.0
     end
