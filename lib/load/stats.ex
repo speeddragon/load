@@ -54,6 +54,7 @@ defmodule Load.Stats do
       }})
   end
 
+  @amin :timer.minutes(1)
 
   def get_stats do
   # Delete records older than 30 seconds
@@ -67,7 +68,7 @@ defmodule Load.Stats do
     #Collect sum of other stats
     now_ms = DateTime.utc_now |> DateTime.to_unix(:millisecond)
     sum_stats = Enum.reduce(:ets.tab2list(@stats_table), Map.put(@empty_stats, :last_update_ms, -1),
-        fn ({_k, %{last_update_ms: lu} = ws}, acc) when now_ms - lu < :timer.seconds(60) -> # use stats at most 1 min old
+        fn ({_k, %{last_update_ms: lu} = ws}, acc) when now_ms - lu < @amin ->
               Map.merge(ws,acc, fn _k, v1, v2 ->
                 v1 + v2
               end)
