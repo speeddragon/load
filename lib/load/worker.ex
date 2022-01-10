@@ -34,7 +34,7 @@ defmodule Load.Worker do
         {:error, reason} ->
           Logger.error("[#{__MODULE__}] init failed for host:#{inspect(host)} due to:#{inspect(reason)}")
           :init.stop()
-          :timer.sleep(20000)
+          :timer.sleep(:timer.seconds(20))
       end
     Logger.debug("Worker:#{inspect(self())} targets ip:#{inspect(host_ip)} - host:#{inspect(host)}")
     port = Keyword.get(config, :port)
@@ -112,7 +112,7 @@ defmodule Load.Worker do
 
     state = maybe_send_stats(state)
 
-    id = (DateTime.utc_now |> DateTime.to_unix(:millisecond)) * 1000000 + :rand.uniform(1000000)
+    id = (DateTime.utc_now |> DateTime.to_unix(:millisecond)) * :timer.seconds(1000) + :rand.uniform(:timer.seconds(1000))
 
     text = [node(), node_id, ref_value, id] |> Enum.map(&inspect/1) |> Enum.join("_")
     payload = %{ encoding: "base64", value: Base.encode64(text)} |> Jason.encode!()
