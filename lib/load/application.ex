@@ -5,6 +5,7 @@ defmodule Load.Application do
   def start(_type, _args) do
     start_folsom_metrics()
     children = [
+      {DynamicSupervisor, strategy: :one_for_one, name: MyApp.DynamicSupervisor}
       # %{
       #   id: "hsfg",
       #   start: {Supervisor, :start_link, [[

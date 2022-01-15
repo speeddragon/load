@@ -55,37 +55,33 @@ defp setup_nodes(config) do
      Logger.info("Customer node (as map): #{inspect(Enum.into(node_config, %{}))}")
 
   end)
+
+  config
 end
 
-defp setup_workers(_config) do
-  # worker_args = %{
-  #   http_protocol: Keyword.get(config, :transport),
-  #   max_sleep: Keyword.get(config, :sleep_time, @default_max_sleep_time_ms),
-  #   workers_per_node: Keyword.get(config, :workers_per_node)
-  # }
+defp setup_workers(config) do
+  Keyword.get(config, :load_nodes, [])
+  |> Enum.each(fn _ -> create_workers_for_node(config) end)
 
-  # Keyword.get(config, :load_nodes, [])
-  # |> Enum.each(
-  #   &create_workers_for_node(
-  #     Map.put(worker_args, :node_config, &1)
-  #   ))
-
+  config
 end
 
 
-# defp create_workers_for_node(_config) do
-#   # create_workers_for_node(#{node_config := CustomerNodeConfig} = WorkerArgs,
-#   #                       UsersPerNode) ->
-#   #   CustomerNodeID = proplists:get_value(id, CustomerNodeConfig),
-#   #   Pids = [begin
-#   #               {ok, Pid} = supervisor:start_child(soak_worker_sup, [WorkerArgs]),
-#   #               erlang:link(Pid),
-#   #               Pid
-#   #           end
-#   #           || _N <- lists:seq(1, UsersPerNode)],
-#   #   ?FINFO("Spawned workers [node ~p] ~99999p~n", [CustomerNodeID, Pids]),
-#   #   Pids.
-# end
+defp create_workers_for_node(config) do
+
+  pids = Enum.map(1..Keyword.get(config, :workers_per_node), fn _ ->
+    # {:ok, pid} = Supervisor.start_child(:load_worker_sup, [configt])
+    # Process.link(pid)
+    # pid
+    :ok
+  end)
+
+  node_id = config[:node_config].id
+  count = length(pids)
+  Logger.info("[#{__MODULE__}] spawned #{count} workers on node: #{node_id}")
+
+  pids
+end
 
 defp stop_workers(count, running_workers), do:
   Enum.reduce(1..count, running_workers, fn (_n, [pid | more]) -> send(pid, :stop); more end)
