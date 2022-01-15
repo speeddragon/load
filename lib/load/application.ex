@@ -4,8 +4,15 @@ defmodule Load.Application do
   @impl true
   def start(_type, _args) do
     start_folsom_metrics()
-    children = []
-    opts = [strategy: :one_for_one, name: Ted.Supervisor]
+    children = [
+      %{
+        id: "hsfg",
+        start: {Supervisor, :start_link, [[
+          {Load.Worker, %{}}
+          ], [strategy: :one_for_one, name: Load.Worker.Supervisor]]}
+      }
+    ]
+    opts = [strategy: :one_for_one, name: Load.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
