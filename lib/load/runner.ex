@@ -22,7 +22,7 @@ defmodule Load.Runner do
     Process.send_after(self(), :print_stats, :timer.seconds(10))
 
     # Make sleep time 10% shorter to compensate for timers latency but min 1ms
-    sleep_ms = max(1, Keyword.get(config, :sleep_time_ms, @default_max_sleep_time_ms) * 9 / 10)
+    sleep_ms = max(1, Map.get(config, :sleep_time_ms, @default_max_sleep_time_ms) * 9 / 10)
 
     state = %{
       sleep_ms: sleep_ms,
@@ -31,6 +31,8 @@ defmodule Load.Runner do
     print_usage()
     {:ok, state}
   end
+
+  def stop, do: GenServer.call(__MODULE__, :stop)
 
   def add(ids \\ :all, count) when is_integer(count) and count > 0 and (ids == :all or is_list(ids)), do:
     GenServer.call(__MODULE__, {:add_workers, ids, count})
@@ -56,6 +58,25 @@ defmodule Load.Runner do
     :ets.select_delete(@workers_tab, ms)
   end
 
+  def handle_call({:add_workers, node_id, count}, _from, state) do
+    if node_id == :all do
+      :ets.tab2list(@nodes_tab)
+    else
+      :ets.lookup(@nodes_tab, node_id)
+    end
+    |> Enum.each(fn {_NodeId, node_config} -> create_workers_for_node(Map.put(node_config, :workers_per_node, count))
+    end)
+    {:reply, :ok, state}
+  end
+
+  def handle_call(:stop, _from, state) do
+    :ets.tab2list(@workers_tab)
+    |> Enum.each(fn {k, pid} ->
+    send(pid, :stop)
+    :ets.delete_object(@workers_tab, {k, pid})
+    end)
+    {:stop, :normal, :stopped, state}
+  end
 
   def handle_info({EXIT, pid, reason}, state) do
     Process.unlink(pid)
@@ -66,9 +87,9 @@ defmodule Load.Runner do
   defp setup_nodes(config) do
     :ets.new(@nodes_tab, [:named_table])
 
-    Keyword.get(config, :load_nodes, [])
+    Map.get(config, :load_nodes, [])
     |> Enum.each(fn node_config ->
-      node_id = Keyword.get(node_config, :id)
+      node_id = Map.get(node_config, :id)
       :ets.insert(@nodes_tab, {node_id, node_config})
       Logger.info("Customer node (as map): #{inspect(Enum.into(node_config, %{}))}")
     end)
@@ -77,7 +98,7 @@ defmodule Load.Runner do
   end
 
   defp setup_workers(config) do
-    Keyword.get(config, :load_nodes, [])
+    Map.get(config, :load_nodes, [])
     |> Enum.each(fn _ -> create_workers_for_node(config) end)
 
     config
@@ -86,7 +107,7 @@ defmodule Load.Runner do
 
   defp create_workers_for_node(config) do
 
-    pids = Enum.map(1..Keyword.get(config, :workers_per_node), fn _ ->
+    pids = Enum.map(1..Map.get(config, :workers_per_node), fn _ ->
       # {:ok, pid} = Supervisor.start_child(:load_worker_sup, [configt])
       # Process.link(pid)
       # pid
