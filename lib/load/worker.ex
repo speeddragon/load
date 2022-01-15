@@ -1,9 +1,9 @@
 defmodule Load.Worker do
   use GenServer
 
+  alias Load.Application
+
   require Logger
-
-
 
 # state {
 #     ref = erlang:ref_to_list(erlang:make_ref()),
@@ -33,10 +33,11 @@ defmodule Load.Worker do
         {:ok, ip} -> ip
         {:error, reason} ->
           Logger.error("[#{__MODULE__}] init failed for host:#{inspect(host)} due to:#{inspect(reason)}")
-          :init.stop()
+          # TODO: check if this is just stopping the worker or something more
+          # :init.stop()
           :timer.sleep(:timer.seconds(20))
       end
-    Logger.debug("Worker:#{inspect(self())} targets ip:#{inspect(host_ip)} - host:#{inspect(host)}")
+    Logger.debug("#{__MODULE__}:#{inspect(self())} targets ip:#{inspect(host_ip)} - host:#{inspect(host)}")
     port = Keyword.get(config, :port)
 
     http_opts =
@@ -49,6 +50,7 @@ defmodule Load.Worker do
     conn = create_connection(host_ip, port, http_opts)
     headers = [{"accept", "application/json"},
                 {"content-type", "application/json"}]
+    # Registering the worked in the :ets table
     Load.Stats.register_worker(self())
     :folsom_metrics.notify({:running_clients, {:inc, 1}})
     #Load.Runner.on_worker_started(__MODULE__, :node_id, self())
@@ -72,6 +74,7 @@ defmodule Load.Worker do
 #     Load.Runner:on_worker_terminated(__MODULE__, node_id, self()).
 
 
+# Myabe these could come from config
   @max_retries 5
   @gun_timeout :timer.seconds(30)
   @req_timeout :timer.seconds(30)
@@ -99,50 +102,53 @@ defmodule Load.Worker do
     end
   end
 
-
-
   defp loop(%{
     base_url: base_url,
-    ref: ref_value,
-    node_id: node_id,
+    ref: _ref_value,
+    node_id: _node_id,
     conn: conn,
     headers: headers,
-    stats_reqs: stats_reqs} = state
+    stats_reqs: _stats_reqs} = state
     ) do
 
+    # Leaving this out assuming it's message independent. If it's not, we'll
+    # move in the behaviour implementation
     state = maybe_send_stats(state)
 
-    id = (DateTime.utc_now |> DateTime.to_unix(:millisecond)) * :timer.seconds(1000) + :rand.uniform(:timer.seconds(1000))
+    # Provided we have a way to "understand" what message we received, we can trigger the
+    # right module
+    message_type = "audit_event_happened"
+    module = Application.get_simulator_implementation(message_type)
 
-    text = [node(), node_id, ref_value, id] |> Enum.map(&inspect/1) |> Enum.join("_")
-    payload = %{ encoding: "base64", value: Base.encode64(text)} |> Jason.encode!()
+    payload=module.process(state)
+    state = update_state(state)
 
-    state = Map.put(state, :stats_reqs, stats_reqs + 1)
-
+    # WE might want to hyde :gun behind a behaviour
     post_ref = :gun.post(conn, base_url <> "/entry", headers, payload)
     :folsom_metrics.notify({:sent_transactions, {:inc, 1}})
-
     g = :gun.await(conn, post_ref, @req_timeout)
-    loop_handle_result(g, post_ref, state)
 
-  end
-
-
-  defp loop_handle_result({:response, _, code, _resp_headers}, post_ref, %{
-    conn: conn,
-    sleep_time: sleep_time,
-    stats_entries: stats_entries} = state
-    ) when div(code, 100) == 2 do
-
+    # TODO: let's find a home to this guy :P
+    handle_result = fn {:response, _, code, _resp_headers}, post_ref, %{
+      conn: conn,
+      sleep_time: sleep_time,
+      stats_entries: stats_entries} = state
+      when div(code,2) == 0
+      ->
       {:ok, _response_payload} = :gun.await_body(conn, post_ref, @req_timeout)
 
-      # do something with response if necessary (e.g. schedule a verification)
+        # do something with response if necessary (e.g. schedule a verification)
+        Process.send_after(self(), :loop, sleep_time)
 
-      Process.send_after(self(), :loop, sleep_time)
+        state = Map.put(state, :stats_entries, stats_entries + 1)
+        {:noreply, state}
+    end
 
-      state = Map.put(state, :stats_entries, stats_entries + 1)
-      {:noreply, state}
+    # Let's call the behaviour implementation, passing our function
+    module.handle_result(handle_result, g, post_ref, state)
+
   end
+
 
   defp loop_handle_result(reason,_, %{sleep_time: sleep_time, stats_errors: stats_errors} = state) do
     :folsom_metrics.notify({:http_errors, {:inc, 1}})
@@ -156,7 +162,7 @@ defmodule Load.Worker do
 
   end
 
-
+  # TODO: move this in config ?
   @periodic_stats_min_duration :timer.seconds(1)
 
   defp maybe_send_stats(%{
@@ -186,4 +192,7 @@ defmodule Load.Worker do
     end
 
   end
+
+  defp update_state(%{stats_reqs: stats_reqs} = state), do:
+    Map.put(state, :stats_reqs, stats_reqs + 1)
 end
