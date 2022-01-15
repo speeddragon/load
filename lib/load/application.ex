@@ -5,12 +5,12 @@ defmodule Load.Application do
   def start(_type, _args) do
     start_folsom_metrics()
     children = [
-      %{
-        id: "hsfg",
-        start: {Supervisor, :start_link, [[
-          {Load.Worker, %{}}
-          ], [strategy: :one_for_one, name: Load.Worker.Supervisor]]}
-      }
+      # %{
+      #   id: "hsfg",
+      #   start: {Supervisor, :start_link, [[
+      #     {Load.Worker, %{}}
+      #     ], [strategy: :one_for_one, name: Load.Worker.Supervisor]]}
+      # }
     ]
     opts = [strategy: :one_for_one, name: Load.Supervisor]
     Supervisor.start_link(children, opts)
@@ -40,7 +40,7 @@ defmodule Load.Application do
       }
       ```
   """
-  def get_simulator_implementation(message_type) do
+  def get_simulator_implementation(_message_type) do
     Application.get_env(:load, :message_types)
   end
 end
