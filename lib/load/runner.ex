@@ -3,7 +3,6 @@ defmodule Load.Runner do
 
   require Logger
 
-  @nodes_tab :load_nodes
   @default_max_sleep_time_ms 200
 
   def start_link(args), do: GenServer.start_link(__MODULE__, args)
@@ -30,12 +29,12 @@ defmodule Load.Runner do
     {:ok, state}
   end
 
-  # TABS :running_workers
+  # TABS :running_workers :active_nodes
 
   def add(node_id \\ :all, count) when is_integer(count) and count > 0 and (node_id == :all or is_binary(node_id)) do
     case node_id do
-      :all -> :ets.tab2list(@nodes_tab)
-      _ -> :ets.lookup(@nodes_tab, node_id)
+      :all -> :ets.tab2list(:active_nodes)
+      _ -> :ets.lookup(:active_nodes, node_id)
     end
     |> Enum.each(fn {_node_id, node_config} ->
       create_workers_for_node(Map.put(node_config, :workers_per_node, count))
@@ -44,8 +43,8 @@ defmodule Load.Runner do
 
   def remove(node_id \\ :all, count) when is_integer(count) and count > 0 and (node_id == :all or is_binary(node_id)) do
     case node_id do
-      :all -> :ets.tab2list(@nodes_tab)
-      _ -> :ets.lookup(@nodes_tab, node_id)
+      :all -> :ets.tab2list(:active_nodes)
+      _ -> :ets.lookup(:active_nodes, node_id)
     end
     |> Enum.each(fn {node_id, _node_config} ->
       running_workers = :ets.lookup(:running_workers, node_id)
@@ -65,13 +64,13 @@ defmodule Load.Runner do
   end
 
   def on_worker_started(node_id, pid) do
-    Logger.info("[#{__MODULE__}] worker #{node_id}/#{pid} started")
+    Logger.info("[Load] worker #{node_id}/#{pid} started")
     :ets.insert(:running_workers, {node_id, pid})
   end
 
 
   def on_worker_terminated(node_id, pid, reason) do
-    Logger.error("[#{__MODULE__}] worker #{node_id}/#{pid} terminated for reason: #{reason}")
+    Logger.error("[Load] worker #{node_id}/#{pid} stopped for reason: #{reason}")
     ms = :ets.fun2ms(fn {_Node, p} -> p == pid end)
     :ets.select_delete(:running_workers, ms)
   end
@@ -83,12 +82,12 @@ defmodule Load.Runner do
   end
 
   defp setup_nodes(config) do
-    :ets.new(@nodes_tab, [:named_table])
+    :ets.new(:active_nodes, [:named_table])
 
     Map.get(config, :load_nodes, [])
     |> Enum.each(fn node_config ->
       node_id = Map.get(node_config, :id)
-      :ets.insert(@nodes_tab, {node_id, node_config})
+      :ets.insert(:active_nodes, {node_id, node_config})
       Logger.info("Customer node (as map): #{inspect(Enum.into(node_config, %{}))}")
     end)
 

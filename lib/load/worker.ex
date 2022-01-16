@@ -19,52 +19,58 @@ defmodule Load.Worker do
 #     stats_errors = 0,
 # }
 
-  def start_link(args), do: GenServer.start_link(__MODULE__, args)
+  def start_link(args, more), do: GenServer.start_link(__MODULE__, args ++ more |> Enum.into(%{}) )
+  def start_link(args), do: GenServer.start_link(__MODULE__, args |> Enum.into(%{}) )
 
-  def init(%{
-    transport: transport,
-    config: config,
-    max_sleep: max_sleep
-  } = state) do
-    host = Keyword.get(config, :host)
-    host_ip =
-      case :inet.getaddr(host, :inet) do
+  # def init(%{
+  #   transport: transport,
+  #   config: config,
+  #   max_sleep: max_sleep
+  # } = state) do
+  #   host = Keyword.get(config, :host)
+  #   host_ip =
+  #     case :inet.getaddr(host, :inet) do
 
-        {:ok, ip} -> ip
-        {:error, reason} ->
-          Logger.error("[#{__MODULE__}] init failed for host:#{inspect(host)} due to:#{inspect(reason)}")
-          # TODO: check if this is just stopping the worker or something more
-          # :init.stop()
-          :timer.sleep(:timer.seconds(20))
-      end
-    Logger.debug("#{__MODULE__}:#{inspect(self())} targets ip:#{inspect(host_ip)} - host:#{inspect(host)}")
-    port = Keyword.get(config, :port)
+  #       {:ok, ip} -> ip
+  #       {:error, reason} ->
+  #         Logger.error("[#{__MODULE__}] init failed for host:#{inspect(host)} due to:#{inspect(reason)}")
+  #         # TODO: check if this is just stopping the worker or something more
+  #         # :init.stop()
+  #         :timer.sleep(:timer.seconds(20))
+  #     end
+  #   Logger.debug("#{__MODULE__}:#{inspect(self())} targets ip:#{inspect(host_ip)} - host:#{inspect(host)}")
+  #   port = Keyword.get(config, :port)
 
-    http_opts =
-      case transport do
-        "http" -> %{}
-        "https" -> %{transport: :ssl}
-      end
+  #   http_opts =
+  #     case transport do
+  #       "http" -> %{}
+  #       "https" -> %{transport: :ssl}
+  #     end
 
 
-    conn = create_connection(host_ip, port, http_opts)
-    headers = [{"accept", "application/json"},
-                {"content-type", "application/json"}]
-    # Registering the worked in the :ets table
-    Load.Stats.register_worker(self())
-    :folsom_metrics.notify({:running_clients, {:inc, 1}})
-    #Load.Runner.on_worker_started(__MODULE__, :node_id, self())
+  #   conn = create_connection(host_ip, port, http_opts)
+  #   headers = [{"accept", "application/json"},
+  #               {"content-type", "application/json"}]
+  #   # Registering the worked in the :ets table
+  #   Load.Stats.register_worker(self())
+  #   :folsom_metrics.notify({:running_clients, {:inc, 1}})
+  #   #Load.Runner.on_worker_started(__MODULE__, :node_id, self())
 
-    Process.send(self(), :loop, [])
+  #   Process.send(self(), :loop, [])
 
-    state = %{
-      node_id: :node_id,
-      headers: headers,
-      sleep_time: max_sleep,
-      conn: conn,
-      stats_last_ms: 0
-    } |> Map.merge(state)
-    {:ok, state}
+  #   state = %{
+  #     node_id: :node_id,
+  #     headers: headers,
+  #     sleep_time: max_sleep,
+  #     conn: conn,
+  #     stats_last_ms: 0
+  #   } |> Map.merge(state)
+  #   {:ok, state}
+  # end
+
+  def init(args) do
+    Logger.warn("init called with args: #{inspect(args)}")
+    {:ok, %{}}
   end
 
   def handle_info(:loop, state), do: loop(state)

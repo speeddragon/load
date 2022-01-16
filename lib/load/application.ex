@@ -5,13 +5,7 @@ defmodule Load.Application do
   def start(_type, _args) do
     start_folsom_metrics()
     children = [
-      {DynamicSupervisor, strategy: :one_for_one, name: MyApp.DynamicSupervisor}
-      # %{
-      #   id: "hsfg",
-      #   start: {Supervisor, :start_link, [[
-      #     {Load.Worker, %{}}
-      #     ], [strategy: :one_for_one, name: Load.Worker.Supervisor]]}
-      # }
+      {DynamicSupervisor, strategy: :one_for_one, name: Load.Worker.Supervisor} #, extra_arguments: [[a: :b]]}
     ]
     opts = [strategy: :one_for_one, name: Load.Supervisor]
     Supervisor.start_link(children, opts)
