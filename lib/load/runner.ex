@@ -3,8 +3,6 @@ defmodule Load.Runner do
 
   require Logger
 
-
-  @workers_tab :load_workers
   @nodes_tab :load_nodes
   @default_max_sleep_time_ms 200
 
@@ -15,7 +13,7 @@ defmodule Load.Runner do
     Logger.info("runner init #{inspect(config)}")
     Load.Stats.init()
 
-    :ets.new(@workers_tab, [:named_table, :public, :bag])
+    :ets.new(:running_workers, [:named_table, :public, :bag])
 
     config |> setup_nodes() |> setup_workers()
 
@@ -32,50 +30,50 @@ defmodule Load.Runner do
     {:ok, state}
   end
 
-  def stop, do: GenServer.call(__MODULE__, :stop)
+  # TABS :running_workers
 
-  def add(ids \\ :all, count) when is_integer(count) and count > 0 and (ids == :all or is_list(ids)), do:
-    GenServer.call(__MODULE__, {:add_workers, ids, count})
-
-  def remove(ids \\ :all, count) when is_integer(count) and count > 0 and (ids == :all or is_list(ids)) do
-    Enum.each(:ets.tab2list(:load_nodes), fn {node_id, _config} ->
-    running_workers = :ets.lookup(:load_workers, node_id)
-    if length(running_workers) > count do
-      stop_workers(count, Enum.map(running_workers, &elem(&1, 1)))
+  def add(node_id \\ :all, count) when is_integer(count) and count > 0 and (node_id == :all or is_binary(node_id)) do
+    case node_id do
+      :all -> :ets.tab2list(@nodes_tab)
+      _ -> :ets.lookup(@nodes_tab, node_id)
     end
+    |> Enum.each(fn {_node_id, node_config} ->
+      create_workers_for_node(Map.put(node_config, :workers_per_node, count))
+    end)
+  end
+
+  def remove(node_id \\ :all, count) when is_integer(count) and count > 0 and (node_id == :all or is_binary(node_id)) do
+    case node_id do
+      :all -> :ets.tab2list(@nodes_tab)
+      _ -> :ets.lookup(@nodes_tab, node_id)
+    end
+    |> Enum.each(fn {node_id, _node_config} ->
+      running_workers = :ets.lookup(:running_workers, node_id)
+      if length(running_workers) > count do
+        Enum.reduce(1..count, running_workers, fn (_n, [pid | more]) -> send(pid, :stop); more end)
+        stop_workers(count, Enum.map(running_workers, &elem(&1, 1)))
+      end
+    end)
+  end
+
+  def stop do
+    :ets.tab2list(:running_workers)
+    |> Enum.each(fn {k, pid} ->
+      send(pid, :stop)
+      :ets.delete_object(:running_workers, {k, pid})
     end)
   end
 
   def on_worker_started(node_id, pid) do
     Logger.info("[#{__MODULE__}] worker #{node_id}/#{pid} started")
-    :ets.insert(@workers_tab, {node_id, pid})
+    :ets.insert(:running_workers, {node_id, pid})
   end
 
 
   def on_worker_terminated(node_id, pid, reason) do
     Logger.error("[#{__MODULE__}] worker #{node_id}/#{pid} terminated for reason: #{reason}")
     ms = :ets.fun2ms(fn {_Node, p} -> p == pid end)
-    :ets.select_delete(@workers_tab, ms)
-  end
-
-  def handle_call({:add_workers, node_id, count}, _from, state) do
-    if node_id == :all do
-      :ets.tab2list(@nodes_tab)
-    else
-      :ets.lookup(@nodes_tab, node_id)
-    end
-    |> Enum.each(fn {_NodeId, node_config} -> create_workers_for_node(Map.put(node_config, :workers_per_node, count))
-    end)
-    {:reply, :ok, state}
-  end
-
-  def handle_call(:stop, _from, state) do
-    :ets.tab2list(@workers_tab)
-    |> Enum.each(fn {k, pid} ->
-    send(pid, :stop)
-    :ets.delete_object(@workers_tab, {k, pid})
-    end)
-    {:stop, :normal, :stopped, state}
+    :ets.select_delete(:running_workers, ms)
   end
 
   def handle_info({EXIT, pid, reason}, state) do
