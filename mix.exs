@@ -23,8 +23,7 @@ defmodule Load.MixProject do
       {:folsom, "~> 1.0"},
       {:gun, "~> 1.3"},
       {:jason, "~> 1.3"},
-      {:plug_cowboy, "~> 2.0"},
-      {:redix, "~> 1.1"}
+      {:plug_cowboy, "~> 2.0"}
 
       # Code quality
       # {:dialyxir, "~> 1.0", only: [:dev], runtime: false},

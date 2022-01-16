@@ -10,17 +10,10 @@ defmodule Load.Application do
         scheme: :http,
         plug: Load.Router,
         options: [
-          port: Application.get_env(:load, :ws_port,8888),
+          port: Application.get_env(:load, :ws_port, 8888),
           dispatch: dispatch()
         ]
       ),
-      {
-        Redix,
-        name: :redix,
-        host: Application.get_env(:redix, :host, "localhost"),
-        port: Application.get_env(:redix, :port, 6379),
-        database: Application.get_env(:redix, :database, 4)
-      },
       Load.Runner,
       {DynamicSupervisor, strategy: :one_for_one, name: Load.Worker.Supervisor}, #, extra_arguments: [[a: :b]]}
       {DynamicSupervisor, strategy: :one_for_one, name: Load.Connection.Supervisor}
