@@ -64,15 +64,19 @@ defmodule Load.Runner do
     {:noreply, state}
   end
 
-  def handle_call({:add, node_id, count}, _from, state) do
-    case node_id do
-      :all -> :ets.tab2list(:active_nodes)
-      _ -> :ets.lookup(:active_nodes, node_id)
-    end
-    |> Enum.each(fn {_node_id, node_config} ->
-      create_workers_for_node(Map.put(node_config, :workers_per_node, count))
-    end)
-    {:reply, :ok2, state}
+  def handle_call({:add, _node_id, count}, _from, state) do
+    # case node_id do
+    #   :all -> :ets.tab2list(:active_nodes)
+    #   _ -> :ets.lookup(:active_nodes, node_id)
+    # end
+    # |> Enum.each(fn {_node_id, node_config} ->
+    #   create_workers_for_node(Map.put(node_config, :workers_per_node, count))
+    # end)
+
+    node_config = %{}
+    create_workers_for_node(Map.put(node_config, :workers_per_node, count))
+
+    {:reply, :ok, state}
   end
 
   def handle_call({:remove, node_id, count}, _from, state) do
@@ -89,6 +93,7 @@ defmodule Load.Runner do
     end)
     {:reply, :ok2, state}
   end
+
   defp setup_nodes(config) do
     :ets.new(:active_nodes, [:named_table])
 
@@ -113,13 +118,12 @@ defmodule Load.Runner do
   defp create_workers_for_node(config) do
 
     pids = Enum.map(1..Map.get(config, :workers_per_node), fn _ ->
-      # {:ok, pid} = Supervisor.start_child(:load_worker_sup, [configt])
+      {:ok, pid} = DynamicSupervisor.start_child(Load.Worker.Supervisor, Load.Worker)
       # Process.link(pid)
-      # pid
-      :ok
+      pid
     end)
 
-    node_id = config[:node_config].id
+    node_id = "carciofo" # config[:node_config].id
     count = length(pids)
     Logger.info("[#{__MODULE__}] spawned #{count} workers on node: #{node_id}")
 
