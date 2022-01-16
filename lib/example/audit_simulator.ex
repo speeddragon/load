@@ -1,4 +1,4 @@
-defmodule Load.AuditSimulator do
+defmodule Example.AuditSimulator do
   @moduledoc """
   This will live in an implementation package (in the client domain)
   """

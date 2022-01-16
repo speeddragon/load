@@ -2,16 +2,43 @@ defmodule Load.Application do
   use Application
 
   @impl true
+  @spec start(any, any) :: {:error, any} | {:ok, pid}
   def start(_type, _args) do
     start_folsom_metrics()
     children = [
+      Plug.Cowboy.child_spec(
+        scheme: :http,
+        plug: Load.Router,
+        options: [
+          port: Application.get_env(:load, :ws_port,8888),
+          dispatch: dispatch()
+        ]
+      ),
+      {
+        Redix,
+        name: :redix,
+        host: Application.get_env(:redix, :host, "localhost"),
+        port: Application.get_env(:redix, :port, 6379),
+        database: Application.get_env(:redix, :database, 4)
+      },
       Load.Runner,
-      {DynamicSupervisor, strategy: :one_for_one, name: Load.Worker.Supervisor} #, extra_arguments: [[a: :b]]}
+      {DynamicSupervisor, strategy: :one_for_one, name: Load.Worker.Supervisor}, #, extra_arguments: [[a: :b]]}
+      {DynamicSupervisor, strategy: :one_for_one, name: Load.Connection.Supervisor}
     ]
     opts = [strategy: :one_for_one, name: Load.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
+  def dispatch do
+    [
+      {:_,
+       [
+         {"/ws", Load.WebsocketHandler, []}
+        #  ,
+        #  {:_, Plug.Cowboy.Handler, {Load.Router, []}}
+       ]}
+    ]
+  end
 
   defp start_folsom_metrics do
 

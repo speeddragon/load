@@ -26,17 +26,13 @@ defmodule Load.Runner do
     #   config: config
     # }
     # print_usage()
-    state = %{}
+
+    state = %{nodes: []}
     {:ok, state}
   end
 
   # TABS :running_workers :active_nodes
 
-  def add(node_id \\ :all, count) when is_integer(count) and count > 0 and (node_id == :all or is_binary(node_id)), do:
-    GenServer.call(__MODULE__, {:add, node_id, count})
-
-  def remove(node_id \\ :all, count) when is_integer(count) and count > 0 and (node_id == :all or is_binary(node_id)), do:
-    GenServer.call(__MODULE__, {:remove, node_id, count})
 
   def stop do
     :ets.tab2list(:running_workers)
@@ -63,6 +59,9 @@ defmodule Load.Runner do
     on_worker_terminated(:unknown, pid, reason)
     {:noreply, state}
   end
+
+  def handle_call({:set, nodes}, _from, state), do: {:reply, :ok, %{state | nodes: nodes}}
+  def handle_call( :get, _from, state), do: {:reply, state.nodes, state}
 
   def handle_call({:add, _node_id, count}, _from, state) do
     # case node_id do
