@@ -3,57 +3,40 @@ defmodule Load.Runner do
 
   require Logger
 
-  @default_max_sleep_time_ms 200
+  # @default_max_sleep_time_ms 200
 
-  def start_link(args), do: GenServer.start_link(__MODULE__, args)
+  def start_link(args), do: GenServer.start_link(__MODULE__, args, name: __MODULE__)
 
-  def init(config) do
-    :erlang.process_flag(:trap_exit, true)
-    Logger.info("runner init #{inspect(config)}")
-    Load.Stats.init()
+  def init(_config) do
+    # :erlang.process_flag(:trap_exit, true)
+    # Logger.info("runner init #{inspect(config)}")
+    # Load.Stats.init()
 
-    :ets.new(:running_workers, [:named_table, :public, :bag])
+    # :ets.new(:running_workers, [:named_table, :public, :bag])
 
-    config |> setup_nodes() |> setup_workers()
+    # config |> setup_nodes() |> setup_workers()
 
-    Process.send_after(self(), :print_stats, :timer.seconds(10))
+    # Process.send_after(self(), :print_stats, :timer.seconds(10))
 
-    # Make sleep time 10% shorter to compensate for timers latency but min 1ms
-    sleep_ms = max(1, Map.get(config, :sleep_time_ms, @default_max_sleep_time_ms) * 9 / 10)
+    # # Make sleep time 10% shorter to compensate for timers latency but min 1ms
+    # sleep_ms = max(1, Map.get(config, :sleep_time_ms, @default_max_sleep_time_ms) * 9 / 10)
 
-    state = %{
-      sleep_ms: sleep_ms,
-      config: config
-    }
-    print_usage()
+    # state = %{
+    #   sleep_ms: sleep_ms,
+    #   config: config
+    # }
+    # print_usage()
+    state = %{}
     {:ok, state}
   end
 
   # TABS :running_workers :active_nodes
 
-  def add(node_id \\ :all, count) when is_integer(count) and count > 0 and (node_id == :all or is_binary(node_id)) do
-    case node_id do
-      :all -> :ets.tab2list(:active_nodes)
-      _ -> :ets.lookup(:active_nodes, node_id)
-    end
-    |> Enum.each(fn {_node_id, node_config} ->
-      create_workers_for_node(Map.put(node_config, :workers_per_node, count))
-    end)
-  end
+  def add(node_id \\ :all, count) when is_integer(count) and count > 0 and (node_id == :all or is_binary(node_id)), do:
+    GenServer.call(__MODULE__, {:add, node_id, count})
 
-  def remove(node_id \\ :all, count) when is_integer(count) and count > 0 and (node_id == :all or is_binary(node_id)) do
-    case node_id do
-      :all -> :ets.tab2list(:active_nodes)
-      _ -> :ets.lookup(:active_nodes, node_id)
-    end
-    |> Enum.each(fn {node_id, _node_config} ->
-      running_workers = :ets.lookup(:running_workers, node_id)
-      if length(running_workers) > count do
-        Enum.reduce(1..count, running_workers, fn (_n, [pid | more]) -> send(pid, :stop); more end)
-        stop_workers(count, Enum.map(running_workers, &elem(&1, 1)))
-      end
-    end)
-  end
+  def remove(node_id \\ :all, count) when is_integer(count) and count > 0 and (node_id == :all or is_binary(node_id)), do:
+    GenServer.call(__MODULE__, {:remove, node_id, count})
 
   def stop do
     :ets.tab2list(:running_workers)
@@ -81,6 +64,31 @@ defmodule Load.Runner do
     {:noreply, state}
   end
 
+  def handle_call({:add, node_id, count}, _from, state) do
+    case node_id do
+      :all -> :ets.tab2list(:active_nodes)
+      _ -> :ets.lookup(:active_nodes, node_id)
+    end
+    |> Enum.each(fn {_node_id, node_config} ->
+      create_workers_for_node(Map.put(node_config, :workers_per_node, count))
+    end)
+    {:reply, :ok2, state}
+  end
+
+  def handle_call({:remove, node_id, count}, _from, state) do
+    case node_id do
+      :all -> :ets.tab2list(:active_nodes)
+      _ -> :ets.lookup(:active_nodes, node_id)
+    end
+    |> Enum.each(fn {node_id, _node_config} ->
+      running_workers = :ets.lookup(:running_workers, node_id)
+      if length(running_workers) > count do
+        Enum.reduce(1..count, running_workers, fn (_n, [pid | more]) -> send(pid, :stop); more end)
+        stop_workers(count, Enum.map(running_workers, &elem(&1, 1)))
+      end
+    end)
+    {:reply, :ok2, state}
+  end
   defp setup_nodes(config) do
     :ets.new(:active_nodes, [:named_table])
 

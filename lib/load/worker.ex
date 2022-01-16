@@ -19,8 +19,7 @@ defmodule Load.Worker do
 #     stats_errors = 0,
 # }
 
-  def start_link(args, more), do: GenServer.start_link(__MODULE__, args ++ more |> Enum.into(%{}) )
-  def start_link(args), do: GenServer.start_link(__MODULE__, args |> Enum.into(%{}) )
+  def start_link(glob, args \\ []), do: GenServer.start_link(__MODULE__, glob ++ args |> Enum.into(%{}) )
 
   # def init(%{
   #   transport: transport,
