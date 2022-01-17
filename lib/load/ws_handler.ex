@@ -1,4 +1,4 @@
-defmodule Load.WebsocketHandler do
+defmodule Load.WSHandler do
   @moduledoc """
   Module to handle the socket connections
   """

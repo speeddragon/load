@@ -26,7 +26,7 @@ defmodule Load.Application do
     [
       {:_,
        [
-         {"/ws", Load.WebsocketHandler, []}
+         {"/ws", Load.WSHandler, []}
         #  ,
         #  {:_, Plug.Cowboy.Handler, {Load.Router, []}}
        ]}
