@@ -23,8 +23,18 @@ defmodule Load.WSHandler do
 
   @impl true
   def websocket_handle({:text, message}, state) do
-    IO.puts("received #{message}")
-    {:reply, {:text, "ok"}, state}
+    case Jason.decode!(message) do
+      %{"command" => "terminate"} ->
+        Supervisor.which_children(Load.Worker.Supervisor)
+        |> Enum.each(fn {:undefined, pid, :worker, [Load.Worker]} ->
+          DynamicSupervisor.terminate_child(Load.Worker.Supervisor, pid)
+        end)
+        {:stop, state}
+      _ ->
+        {:reply, {:text, "invalid"}, state}
+        # IO.puts("received #{message}")
+    end
+
   end
 
   @impl true

@@ -1,4 +1,4 @@
-defmodule Load.SimulatorBehaviour do
+defmodule Load.Simulator do
   @moduledoc """
   This module defines the contract for every implementation. Basically, all of
   them, should only prepare the payload which will be sent over the

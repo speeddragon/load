@@ -3,13 +3,13 @@ defmodule Example.AuditSimulator do
   This will live in an implementation package (in the client domain)
   """
 
-  @behaviour Load.SimulatorBehaviour
+  @behaviour Load.Simulator
 
-  alias Load.SimulatorBehaviour
+  alias Load.Simulator
 
   require Logger
 
-  @impl SimulatorBehaviour
+  @impl Simulator
   def process(%{
       ref: ref_value,
       node_id: node_id} = state) do
@@ -24,6 +24,6 @@ defmodule Example.AuditSimulator do
     %{ encoding: "base64", value: Base.encode64(text)} |> Jason.encode!()
   end
 
-  @impl SimulatorBehaviour
+  @impl Simulator
   def handle_result(f, g, post_ref, state), do:    f.(g, post_ref, state)
 end

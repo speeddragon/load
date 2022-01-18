@@ -14,7 +14,6 @@ defmodule Load.Application do
           dispatch: dispatch()
         ]
       ),
-      Load.Runner,
       {DynamicSupervisor, strategy: :one_for_one, name: Load.Worker.Supervisor}, #, extra_arguments: [[a: :b]]}
       {DynamicSupervisor, strategy: :one_for_one, name: Load.Connection.Supervisor}
     ]

@@ -1,10 +1,10 @@
 defmodule Load.WSClient do
 
-  use GenServer
+  use GenServer, restart: :transient
 
   require Logger
 
-  def start_link(glob, args \\ []), do: GenServer.start_link(__MODULE__, glob ++ args |> Enum.into(%{}) , name: Tmp)
+  def start_link(glob, args \\ []), do: GenServer.start_link(__MODULE__, glob ++ args |> Enum.into(%{}))
 
   @impl true
   def init(args) do
@@ -15,28 +15,35 @@ defmodule Load.WSClient do
 
   @impl true
   def handle_info(:connect, state) do
-    {:ok, conn} = :gun.open(state.address, _port = 8888, %{retry: 0})
+    {:ok, conn} = :gun.open(state.address |> to_charlist(), _port = 8888, %{retry: 0})
     {:ok, _transport} = :gun.await_up(conn)
     _stream = :gun.ws_upgrade(conn, "/ws" |> to_charlist())
     {:noreply, Map.put(state, :conn, conn)}
   end
 
   @impl true
-  def handle_info({:gun_ws, _conn, _, {:text, _msg}}, state) do
-    Logger.info("[#{__MODULE__}] Message received")
+  def handle_info({:gun_ws, _conn, _, {:text, message}}, state) do
+    case Jason.decode!(message) do
+      _ ->
+        Logger.error("[#{__MODULE__}] invalid")
+    end
     {:noreply, state}
   end
 
   @impl true
-  def handle_info({:gun_down, _conn, _ws, _closed, _, _}, state) do
-    Logger.warn("[#{__MODULE__}] Socket down")
-    {:noreply, state}
+  def handle_info({:gun_down, conn, _ws, _closed, _, _}, state) do
+    Logger.warn("[#{__MODULE__}] Socket down #{state.address}")
+    :ok = :gun.close(conn)
+    :ok = :gun.flush(conn)
+    {:stop, :normal, state}
   end
 
   @impl true
-  def handle_info({:gun_ws, _conn, _ws, :close}, state) do
-    Logger.warn("[#{__MODULE__}] Socket closed")
-    {:noreply, state}
+  def handle_info({:gun_ws, conn, _ws, :close}, state) do
+    Logger.warn("[#{__MODULE__}] Socket closed #{state.address}")
+    :ok = :gun.close(conn)
+    :ok = :gun.flush(conn)
+    {:stop, :normal, state}
   end
 
   @impl true
@@ -52,11 +59,16 @@ defmodule Load.WSClient do
   end
 
   @impl true
-  def handle_cast(_request, state) do
-    :gun.ws_send(state.conn, {:text, "hello"})
+  def handle_call(:get_address, _from, state) do
+    {:reply, state.address, state}
+  end
+
+  @impl true
+  def handle_cast({:ws_send, address, message}, state) do
+    if address == :all or address == state.address do
+      :ok = :gun.ws_send(state.conn, {:text, Jason.encode!(message)})
+    end
     {:noreply, state}
   end
 
-  # DynamicSupervisor.start_child(Load.Connection.Supervisor, {Load.WSClient, address: '127.0.0.1'})
-  # GenServer.cast(Tmp, :something)
 end

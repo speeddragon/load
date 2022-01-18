@@ -1,5 +1,6 @@
 defmodule Load.Worker do
-  use GenServer
+
+  use GenServer, restart: :transient
 
   alias Load.Application
 
