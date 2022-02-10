@@ -41,9 +41,9 @@ defmodule Load.WSHandler do
         end)
         1..count
         |> Enum.each(fn address ->
-          DynamicSupervisor.start_child(Load.Worker.Supervisor, {Load.WSClient, address: address})
+          DynamicSupervisor.start_child(Load.Worker.Supervisor, {Load.Worker, address: address})
         end)
-        {:reply, {:text, "ok"}, state}
+        {:reply, {:text, Jason.encode!(%{ok: :ok})}, state}
       _ ->
         {:reply, {:text, "invalid"}, state}
         # IO.puts("received #{message}")

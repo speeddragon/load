@@ -24,6 +24,8 @@ defmodule Load.WSClient do
   @impl true
   def handle_info({:gun_ws, _conn, _, {:text, message}}, state) do
     case Jason.decode!(message) do
+      %{"ok" => "ok"} ->
+        Logger.info("cool good response")
       _ ->
         Logger.error("[#{__MODULE__}] invalid")
     end
