@@ -30,6 +30,20 @@ defmodule Load.WSHandler do
           DynamicSupervisor.terminate_child(Load.Worker.Supervisor, pid)
         end)
         {:stop, state}
+      %{"command" => "scale", "count" => count} ->
+        count = Supervisor.which_children(Load.Worker.Supervisor)
+        |> Enum.reduce(count, fn {:undefined, pid, :worker, [Load.Worker]}, acc ->
+          acc = acc - 1
+          if acc < 0 do
+            DynamicSupervisor.terminate_child(Load.Worker.Supervisor, pid)
+          end
+          acc
+        end)
+        1..count
+        |> Enum.each(fn address ->
+          DynamicSupervisor.start_child(Load.Worker.Supervisor, {Load.WSClient, address: address})
+        end)
+        {:reply, {:text, "ok"}, state}
       _ ->
         {:reply, {:text, "invalid"}, state}
         # IO.puts("received #{message}")

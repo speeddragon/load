@@ -9,7 +9,7 @@ defmodule Load do
       end)
   end
 
-  def connect(addresses) when is_list(addresses) do
+  def connect(addresses \\ ["localhost"]) when is_list(addresses) do
     DynamicSupervisor.which_children(Load.Connection.Supervisor)
     |> Enum.reduce(MapSet.new(addresses), fn {:undefined, pid, :worker, [Load.WSClient]}, acc ->
       address = GenServer.call(pid, :get_address)
@@ -25,7 +25,7 @@ defmodule Load do
     end)
   end
 
-  def i, do: Load.Stats.get_stats()
+  def q, do: Load.Stats.get_stats()
 
 
   def h, do:
