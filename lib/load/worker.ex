@@ -2,12 +2,10 @@ defmodule Load.Worker do
 
   use GenServer, restart: :transient
 
-  alias Load.Application
-
   require Logger
 
   @connect_delay 200
-  @retry_interval :timer.seconds(20)
+  # @retry_interval :timer.seconds(20)
   @req_timeout :timer.seconds(5)
 
   def start_link(glob, args \\ []), do: GenServer.start_link(__MODULE__, glob ++ args |> Enum.into(%{}) )
