@@ -8,6 +8,7 @@ defmodule Load.Worker do
 
   @connect_delay 200
   @retry_interval :timer.seconds(20)
+  @req_timeout :timer.seconds(5)
 
   def start_link(glob, args \\ []), do: GenServer.start_link(__MODULE__, glob ++ args |> Enum.into(%{}) )
 
@@ -60,7 +61,7 @@ defmodule Load.Worker do
     {:ok, conn} = :gun.open(host, port, opts)
     {:ok, _transport} = :gun.await_up(conn)
 
-    Process.send_after(self(), :hit, 0)
+    Process.send_after(self(), :run, 0)
 
     {:noreply, Map.put(state, :conn, conn)}
 
@@ -78,41 +79,49 @@ defmodule Load.Worker do
   end
 
 
-  def handle_info(:hit, %{sim: sim, hit_interval: hit_interval} = state) do
-    state = sim.process(state)
-    Process.send_after(self(), :hit, hit_interval)
+  def handle_info(:run, %{sim: sim, run_interval: run_interval} = state) do
+    state = state
+    |> maybe_send_stats()
+    |> sim.run()
+    Process.send_after(self(), :run, run_interval)
     {:noreply, state}
   end
 
-  defp cacca() do
-    # WE might want to hyde :gun behind a behaviour
-    post_ref = :gun.post(conn, base_url <> "/entry", headers, payload)
-    :folsom_metrics.notify({:sent_transactions, {:inc, 1}})
-    g = :gun.await(conn, post_ref, @req_timeout)
+  def hit(target, headers, payload, %{host: host, port: port, conn: conn, stats_entries: stats_entries, opts: %{protocol: protocol, transport: transport}} = state) do
 
-    # TODO: let's find a home to this guy :P
-    handle_result = fn {:response, _, code, _resp_headers}, post_ref, %{
-      conn: conn,
-      sleep_time: sleep_time,
-      stats_entries: stats_entries} = state
-      when div(code,2) == 0
-      ->
-      {:ok, _response_payload} = :gun.await_body(conn, post_ref, @req_timeout)
+    case {protocol, transport} do
+      {"http", "tcp"} ->
+        [verb, path] = String.split(target, " ")
+        case verb do
+          "POST" ->
+            post_ref = :gun.post(conn, "http://#{host}:#{port}#{path}", headers, payload)
+            :folsom_metrics.notify({:sent_transactions, {:inc, 1}})
+            g = :gun.await(conn, post_ref, @req_timeout)
+            {:ok, resp_payload} = handle_result(g, post_ref, state)
+            state = Map.put(state, :stats_entries, stats_entries + 1)
+            {:ok, resp_payload, state}
+          _ ->
+            {:error , "http tcp #{verb} not_implemented"}
+        end
 
-        # do something with response if necessary (e.g. schedule a verification)
-        Process.send_after(self(), :loop, sleep_time)
+      _ ->
+        {:error , "not_implemented"}
 
-        state = Map.put(state, :stats_entries, stats_entries + 1)
-        {:noreply, state}
     end
-
-    # Let's call the behaviour implementation, passing our function
-    module.handle_result(handle_result, g, post_ref, state)
-
   end
 
 
-  defp loop_handle_result(reason,_, %{sleep_time: sleep_time, stats_errors: stats_errors} = state) do
+  defp handle_result({:response, _, code, _resp_headers}, post_ref, %{conn: conn}) do
+    if div(code, 100) == 2 do
+      {:ok, resp_payload} = :gun.await_body(conn, post_ref, @req_timeout)
+      {:ok, resp_payload}
+    else
+      {:error, "reponse code #{code}"}
+    end
+
+  end
+
+  defp handle_result(reason,_, %{sleep_time: sleep_time, stats_errors: stats_errors} = state) do
     :folsom_metrics.notify({:http_errors, {:inc, 1}})
 
     Logger.error("Error (#{inspect(self())}) #{inspect(reason)}")
@@ -154,13 +163,6 @@ defmodule Load.Worker do
     end
 
   end
-
-  defp update_state(%{stats_reqs: stats_reqs} = state), do:
-    Map.put(state, :stats_reqs, stats_reqs + 1)
-
-
-  # terminate(_Reason, %{node_id: node_id}) ->
-#     Load.Runner:on_worker_terminated(__MODULE__, node_id, self()).
 
 
 end
