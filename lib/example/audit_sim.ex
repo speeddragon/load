@@ -1,7 +1,4 @@
 defmodule Example.AuditSim do
-  @moduledoc """
-  This will live in an implementation package (in the client domain)
-  """
 
   @behaviour Load.Sim
 
@@ -10,8 +7,12 @@ defmodule Example.AuditSim do
   @impl true
   def run(state) do
 
-    payload = ""
-    {:ok, _res_payload, state} = Load.Worker.hit("POST /qualcosa", [], payload, state)
+    payload = "a content"
+    {:ok, _res_payload, state} = Load.Worker.hit("POST /some_path", [], payload, state)
+    # consume res_payload and maybe change the state
+    payload = "another content"
+    {:ok, _res_payload, state} = Load.Worker.hit("POST /some_other_path", [], payload, state)
+    # consume res_payload and maybe change the state
     state
 
   end
