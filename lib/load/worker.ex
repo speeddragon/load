@@ -18,7 +18,7 @@ defmodule Load.Worker do
     port = Map.get(args, :port)
     opts = Map.get(args, :opts)
     sim = Map.get(args, :sim)
-    hit_interval = Map.get(args, :hit_interval)
+    run_interval = Map.get(args, :run_interval)
 
     Process.send_after(self(), :connect, @connect_delay)
 
@@ -27,7 +27,7 @@ defmodule Load.Worker do
       port: port,
       opts: opts,
       sim: sim,
-      hit_interval: hit_interval,
+      run_interval: run_interval,
       stats_last_ms: 0, # when last stats were sent (milliseconds)
       stats_reqs: 0,
       stats_entries: 0,
@@ -36,22 +36,6 @@ defmodule Load.Worker do
 
     {:ok, state}
   end
-
-  # def handle_info(:get_ip, %{host: host} = state) do
-
-  #   case :inet.getaddr(host, :inet) do
-
-  #     {:ok, ip} ->
-  #       Process.send_after(self(), :connect, 0)
-  #       {:noreply, Map.put(state, :ip, ip)}
-
-  #     {:error, reason} ->
-  #       Logger.error("[#{__MODULE__}] init failed for host:#{inspect(host)} due to:#{inspect(reason)}")
-  #       Process.send_after(self(), :get_ip, @connect_delay)
-  #   end
-
-  # end
-
 
   def handle_info(:connect, %{host: host, port: port, opts: opts} = state) do
 
@@ -62,17 +46,6 @@ defmodule Load.Worker do
     Process.send_after(self(), :run, 0)
 
     {:noreply, Map.put(state, :conn, conn)}
-
-    # case :gun.await_up(conn, @gun_timeout) do
-    #     {:ok, _} ->
-    #         conn
-    #     {:error, :timeout} ->
-    #         :timer.sleep(:timer.seconds(2))
-    #         create_connection(host_ip, port, http_opts, max_retries - 1)
-    #     error ->
-    #       Logger.error("Could not connect to host:#{inspect(host_ip)} port:#{inspect(port)} due to:#{inspect(error)}")
-    #         error
-    # end
 
   end
 
@@ -164,3 +137,31 @@ defmodule Load.Worker do
 
 
 end
+
+
+    # case :gun.await_up(conn, @gun_timeout) do
+    #     {:ok, _} ->
+    #         conn
+    #     {:error, :timeout} ->
+    #         :timer.sleep(:timer.seconds(2))
+    #         create_connection(host_ip, port, http_opts, max_retries - 1)
+    #     error ->
+    #       Logger.error("Could not connect to host:#{inspect(host_ip)} port:#{inspect(port)} due to:#{inspect(error)}")
+    #         error
+    # end
+
+
+  # def handle_info(:get_ip, %{host: host} = state) do
+
+  #   case :inet.getaddr(host, :inet) do
+
+  #     {:ok, ip} ->
+  #       Process.send_after(self(), :connect, 0)
+  #       {:noreply, Map.put(state, :ip, ip)}
+
+  #     {:error, reason} ->
+  #       Logger.error("[#{__MODULE__}] init failed for host:#{inspect(host)} due to:#{inspect(reason)}")
+  #       Process.send_after(self(), :get_ip, @connect_delay)
+  #   end
+
+  # end
