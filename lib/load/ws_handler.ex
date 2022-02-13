@@ -17,7 +17,7 @@ defmodule Load.WSHandler do
   @impl true
   # Handle 'ping' messages from the browser - reply
   def websocket_handle(:ping, state) do
-    IO.puts("received ping")
+    Logger.debug("received ping")
     {:reply, :pong, state}
   end
 

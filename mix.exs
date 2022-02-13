@@ -21,9 +21,9 @@ defmodule Load.MixProject do
   defp deps do
     [
       {:folsom, "~> 1.0"},
-      {:gun, "~> 1.3"},
+      {:gun, "~> 2.0.0-rc.2"},
       {:jason, "~> 1.3"},
-      {:plug_cowboy, "~> 2.0"}
+      {:plug_cowboy, "~> 2.5"}
 
       # Code quality
       # {:dialyxir, "~> 1.0", only: [:dev], runtime: false},

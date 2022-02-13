@@ -15,10 +15,10 @@ defmodule Load.WSClient do
 
   @impl true
   def handle_info(:connect, state) do
-    {:ok, conn} = :gun.open(state.address |> to_charlist(), _port = 8888, %{retry: 0})
+    {:ok, conn} = :gun.open(state.address |> to_charlist(), _port = 8888, %{retry: 0, ws_opts: %{keepalive: :timer.seconds(20), silence_pings: true} })
     {:ok, _transport} = :gun.await_up(conn)
-    _stream = :gun.ws_upgrade(conn, "/ws" |> to_charlist())
-    {:noreply, Map.put(state, :conn, conn)}
+    stream_ref = :gun.ws_upgrade(conn, "/ws" |> to_charlist())
+    {:noreply, state |> Map.put(:conn, conn) |> Map.put(:stream_ref, stream_ref)}
   end
 
   @impl true
@@ -66,9 +66,9 @@ defmodule Load.WSClient do
   end
 
   @impl true
-  def handle_cast({:ws_send, address, message}, state) do
+  def handle_cast({:ws_send, address, message}, %{stream_ref: stream_ref} = state) do
     if address == :all or address == state.address do
-      :ok = :gun.ws_send(state.conn, {:text, Jason.encode!(message)})
+      :ok = :gun.ws_send(state.conn, stream_ref, {:text, Jason.encode!(message)})
     end
     {:noreply, state}
   end
