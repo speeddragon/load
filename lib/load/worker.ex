@@ -68,7 +68,7 @@ defmodule Load.Worker do
           "POST" ->
             Logger.debug("hitting http://#{host}:#{port}#{path}")
             post_ref = :gun.post(conn, "http://#{host}:#{port}#{path}", headers, payload)
-            :folsom_metrics.notify({:sent_transactions, {:inc, 1}})
+            :ets.update_counter(:hits, :sent, 1)
             g = :gun.await(conn, post_ref, @req_timeout)
             {:ok, resp_payload} = handle_result(g, post_ref, state)
             state = Map.put(state, :stats_entries, stats_entries + 1)
@@ -95,7 +95,7 @@ defmodule Load.Worker do
   end
 
   defp handle_result(reason,_, %{sleep_time: sleep_time, stats_errors: stats_errors} = state) do
-    :folsom_metrics.notify({:http_errors, {:inc, 1}})
+    :ets.update_counter(:hits, :errors, 1)
 
     Logger.error("Error (#{inspect(self())}) #{inspect(reason)}")
 

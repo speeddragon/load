@@ -40,9 +40,8 @@ defmodule Load.Stats do
       request_rate = calculate_rate(duration_ms, req_count)
       ingestion_rate = calculate_rate(duration_ms, entry_count)
       error_rate = calculate_rate(duration_ms, error_count)
-      :folsom_metrics.notify({:request_rate, request_rate})
-      :folsom_metrics.notify({:ingestion_rate, ingestion_rate})
-      :folsom_metrics.notify({:error_rate, error_rate})
+      id = :ets.update_counter(:history, :rates, 1)
+      :ets.insert(:history, {id, %{request_rate: request_rate, ingestion_rate: ingestion_rate, error_rate: error_rate}})
       :ets.insert(@stats_table, {pid, %{
         req_count: total_requests + req_count,
         entry_count: total_entries + entry_count,

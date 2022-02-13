@@ -5,7 +5,13 @@ defmodule Load.Application do
   @spec start(any, any) :: {:error, any} | {:ok, pid}
   def start(_type, _args) do
     Load.Stats.init()
-    start_folsom_metrics()
+
+    :hits |> :ets.new([:named_table, :public])
+    :hits |> :ets.insert({:sent, 0})
+    :hits |> :ets.insert({:errors, 0})
+    :history |> :ets.new([:named_table, :public])
+    :history |> :ets.insert({:rates, 0})
+
     children = [
       Plug.Cowboy.child_spec(
         scheme: :http,
@@ -31,18 +37,6 @@ defmodule Load.Application do
         #  {:_, Plug.Cowboy.Handler, {Example.EchoRouter, []}}
        ]}
     ]
-  end
-
-  defp start_folsom_metrics do
-
-    :folsom_metrics.new_gauge(:request_rate)
-    :folsom_metrics.new_gauge(:ingestion_rate)
-    :folsom_metrics.new_gauge(:error_rate)
-    :folsom_metrics.new_counter(:sent_transactions)
-    :folsom_metrics.new_counter(:verified_transactions)
-    :folsom_metrics.new_counter(:http_errors)
-    :folsom_metrics.new_counter(:unconfirmed_transactions)
-    :folsom_metrics.new_counter(:running_clients)
   end
 
   @doc """
