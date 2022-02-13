@@ -58,13 +58,15 @@ defmodule Load.Worker do
     {:noreply, state}
   end
 
-  def hit(target, headers, payload, %{host: host, port: port, conn: conn, stats_entries: stats_entries, opts: %{protocol: protocol, transport: transport}} = state) do
+  def hit(target, headers, payload, %{host: host, port: port, conn: conn, stats_entries: stats_entries, opts: %{protocols: protocols, transport: transport}} = state) do
 
-    case {protocol, transport} do
-      {"http", "tcp"} ->
+
+    case {protocols, transport} do
+      {[:http], :tcp} ->
         [verb, path] = String.split(target, " ")
         case verb do
           "POST" ->
+            Logger.debug("hitting http://#{host}:#{port}#{path}")
             post_ref = :gun.post(conn, "http://#{host}:#{port}#{path}", headers, payload)
             :folsom_metrics.notify({:sent_transactions, {:inc, 1}})
             g = :gun.await(conn, post_ref, @req_timeout)

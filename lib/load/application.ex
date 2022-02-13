@@ -4,6 +4,7 @@ defmodule Load.Application do
   @impl true
   @spec start(any, any) :: {:error, any} | {:ok, pid}
   def start(_type, _args) do
+    Load.Stats.init()
     start_folsom_metrics()
     children = [
       Plug.Cowboy.child_spec(

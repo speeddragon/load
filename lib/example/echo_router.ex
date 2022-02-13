@@ -6,12 +6,12 @@ defmodule Example.EchoRouter do
 
 
   plug :match
-  plug Plug.Parsers, parsers: [:json], json_decoder: Jason
+  # plug Plug.Parsers, parsers: [:json], json_decoder: Jason
   plug :dispatch
 
   post "/example/echo" do
-    params = Map.get(conn, :body_params)
-    send_resp(conn, 200, params)
+    {:ok, body, conn} = read_body(conn)
+    send_resp(conn, 200, body)
   end
 
   get "/example/echo" do

@@ -7,9 +7,9 @@ defmodule Example.EchoSim do
   @impl true
   def run(state) do
 
-    payload = "a content"
+    payload = "example content"
     {:ok, res_payload, state} = Load.Worker.hit("POST /example/echo", [], payload, state)
-    Logger.info("sim received back #{res_payload}")
+    Logger.debug("sim received back #{res_payload}")
     state
 
   end
