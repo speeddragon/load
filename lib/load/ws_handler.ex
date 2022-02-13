@@ -43,9 +43,9 @@ defmodule Load.WSHandler do
         |> Enum.each(fn _ ->
           DynamicSupervisor.start_child(Load.Worker.Supervisor, {Load.Worker,
             host: "localhost",
-            port: "8080",
-            opts: [transport: :tcp, protocol: :http],
-            sim: Example.AuditSim,
+            port: "8888",
+            opts: %{transport: :tcp, protocols: [:http]},
+            sim: Example.EchoSim,
             run_interval: :timer.seconds(1)
           })
         end)

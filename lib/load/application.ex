@@ -25,9 +25,9 @@ defmodule Load.Application do
     [
       {:_,
        [
-         {"/ws", Load.WSHandler, []}
-        #  ,
-        #  {:_, Plug.Cowboy.Handler, {Load.Router, []}}
+         {"/ws", Load.WSHandler, []},
+         {"/example/echo", Plug.Cowboy.Handler, {Example.EchoRouter, []}}
+        #  {:_, Plug.Cowboy.Handler, {Example.EchoRouter, []}}
        ]}
     ]
   end

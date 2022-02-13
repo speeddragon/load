@@ -23,8 +23,8 @@ defmodule Load.Worker do
     Process.send_after(self(), :connect, @connect_delay)
 
     state = %{
-      host: host,
-      port: port,
+      host: String.to_charlist(host),
+      port: String.to_integer(port),
       opts: opts,
       sim: sim,
       run_interval: run_interval,
