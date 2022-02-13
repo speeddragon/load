@@ -41,7 +41,7 @@ defmodule Load.WSClient do
   end
 
   @impl true
-  def handle_info({:gun_ws, conn, _ws, :close}, state) do
+  def handle_info({:gun_ws, conn, _ws, {:close, _, ""}}, state) do
     Logger.warn("[#{__MODULE__}] Socket closed #{state.address}")
     :ok = :gun.close(conn)
     :ok = :gun.flush(conn)
