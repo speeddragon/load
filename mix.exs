@@ -2,9 +2,14 @@ defmodule Load.MixProject do
   use Mix.Project
 
   def project do
+    vsn =
+      case File.read("vsn.txt") do
+        {:ok, v} -> String.trim(v)
+        _ -> "0.0.0"
+      end
     [
       app: :load,
-      version: "0.1.0",
+      version: vsn,
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
       deps: deps()
