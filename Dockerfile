@@ -4,6 +4,8 @@ ARG MIX_ENV
 ARG REPO
 ARG TAG
 
+RUN apk update && apk add git
+
 ADD ./ src/
 RUN mix local.hex --force \
  && mix local.rebar --force \
@@ -16,5 +18,4 @@ FROM alpine:3.15.4
 RUN apk update && apk upgrade && apk add wget curl openssl ncurses libstdc++
 COPY --from=builder src/_build/prod/rel/${REPO} /${REPO}
 
-ENTRYPOINT ["/${REPO}/bin/${REPO}", "start"]
-
+ENTRYPOINT ["/load/bin/load", "start"]
