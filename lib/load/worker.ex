@@ -19,6 +19,10 @@ defmodule Load.Worker do
     opts = Map.get(args, :opts)
     sim = Map.get(args, :sim)
     run_interval = Map.get(args, :run_interval)
+#          |> Map.put(:interval_ms, apply(:timer,
+#        Application.get_env(:ci, :ci_timeunit, :seconds), [
+#        Application.get_env(:ci, :ci_interval, 5)
+#        ]))
 
     Process.send_after(self(), :connect, @connect_delay)
 
