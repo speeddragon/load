@@ -72,6 +72,16 @@ defmodule Load.Worker do
             {:error , "http tcp #{verb} not_implemented"}
         end
 
+      {[:ilp_packet], :http} ->
+        Logger.debug("hitting http://#{host}:#{port}#{target}")
+
+        post_ref = :gun.post(conn, "http://#{host}:#{port}#{target}", headers, payload)
+        :ets.update_counter(:hits, :sent, 1)
+        g = :gun.await(conn, post_ref, @req_timeout)
+        {:ok, resp_payload} = handle_result(g, post_ref, state)
+        state = Map.put(state, :stats_entries, stats_entries + 1)
+        {:ok, resp_payload, state}
+
       _ ->
         {:error , "not_implemented"}
 
