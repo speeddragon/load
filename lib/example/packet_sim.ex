@@ -14,8 +14,18 @@ defmodule Example.PacketSim do
     }
 
     payload = IlpPacket.encode_prepare(data)
-    {:ok, res_payload, new_state} = Load.Worker.hit("/send_money/ilp", [], payload, state)
-    Logger.debug("sim received back #{res_payload}")
+
+    {:ok, res_payload, new_state} =
+      Load.Worker.hit(
+        "/send_money/ilp",
+        [{"content-type", "application/octet-stream"}],
+        payload,
+        state
+      )
+
+    decoded_response = IlpPacket.decode(res_payload)
+    Logger.debug("sim received back #{inspect(decoded_response)}")
+
     new_state
   end
 end
