@@ -5,8 +5,13 @@ defmodule Load.Worker do
   require Logger
 
   @connect_delay 200
-  # @retry_interval :timer.seconds(20)
   @req_timeout :timer.seconds(5)
+  @stats %{
+    last_ms: 0, # last time stats were collected
+    requests: 0,
+    succeeded: 0,
+    failed: 0
+  }
 
   def start_link(glob, args \\ []), do: GenServer.start_link(__MODULE__, glob ++ args |> Enum.into(%{}) )
 
@@ -14,29 +19,22 @@ defmodule Load.Worker do
 
     Logger.debug("init called with args: #{inspect(args)}")
 
-    host = Map.get(args, :host)
-    port = Map.get(args, :port)
-    opts = Map.get(args, :opts)
-    sim = Map.get(args, :sim)
-    run_interval = Map.get(args, :run_interval)
-#          |> Map.put(:interval_ms, apply(:timer,
-#        Application.get_env(:ci, :ci_timeunit, :seconds), [
-#        Application.get_env(:ci, :ci_interval, 5)
-#        ]))
+    state = args
+    |> Map.take([:opts, :sim])
+    |> Map.put(:host, String.to_charlist(args.host))
+    |> Map.put(:port, String.to_integer(args.port))
+    |> Map.put(:interval_ms, apply(:timer,
+      Application.get_env(:load, :worker_timeunit, :seconds), [
+      Application.get_env(:load, :worker_interval, 5)
+    ]))
+    |> Map.put(:stats_interval_ms, apply(:timer,
+      Application.get_env(:load, :worker_stats_timeunit, :seconds), [
+      Application.get_env(:load, :worker_stats_interval, 1)
+    ]))
+
+    |> Map.merge(stats())
 
     Process.send_after(self(), :connect, @connect_delay)
-
-    state = %{
-      host: String.to_charlist(host),
-      port: String.to_integer(port),
-      opts: opts,
-      sim: sim,
-      run_interval: run_interval,
-      stats_last_ms: 0, # when last stats were sent (milliseconds)
-      stats_reqs: 0,
-      stats_entries: 0,
-      stats_errors: 0,
-    }
 
     {:ok, state}
   end
@@ -110,41 +108,29 @@ defmodule Load.Worker do
 
   end
 
-  # TODO: move this in config ?
-  @periodic_stats_min_duration :timer.seconds(1)
+  defp stats, do: @stats
 
-  defp maybe_send_stats(%{
-    stats_last_ms: last,
-    stats_entries: entries,
-    stats_errors: errors,
-    stats_reqs: reqs} = state) do
+  defp maybe_send_stats(state) do
 
     now = DateTime.utc_now |> DateTime.to_unix(:millisecond)
-    duration = now - last
-    if duration > @periodic_stats_min_duration do
-      Load.Stats.update_stats(self(), %{
-        req_count: reqs,
-        entry_count: entries,
-        error_count: errors,
-        duration_since_last_update: duration
-      })
+    duration = now - state.last_ms
+    if duration > state.stats_interval_ms do
+      Load.Stats.update_stats(self(),
+        state
+        |> Map.take([:requests, :succeeded, :failed])
+        |> Map.put(:duration_since_last_update, duration)
+      )
 
-      Map.merge(state, %{
-        stats_last_ms: now,
-        stats_entries: 0,
-        stats_errors: 0,
-        stats_reqs: 0
-      })
+      Map.merge(state, %{stats() | last_ms: now})
     else
       state
     end
 
   end
 
-
 end
 
-
+    # this is for websocket?
     # case :gun.await_up(conn, @gun_timeout) do
     #     {:ok, _} ->
     #         conn
