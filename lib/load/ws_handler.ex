@@ -1,24 +1,21 @@
 defmodule Load.WSHandler do
-  @moduledoc """
-  Module to handle the socket connections
-  """
 
   @behaviour :cowboy_websocket
-  # terminate if no activity for one minute
 
   require Logger
 
   @impl true
   def init(req, _state) do
     state = %{caller: req.pid}
+    Process.send_after(state.caller, :ping, 5000)
     {:cowboy_websocket, req, state}
   end
 
   @impl true
-  # Handle 'ping' messages from the browser - reply
-  def websocket_handle(:ping, state) do
-    Logger.debug("received ping")
-    {:reply, :pong, state}
+  def websocket_handle(:pong, state) do
+    Process.send_after(state.caller, :ping, 5000)
+    Logger.debug("pong")
+    {:ok, state}
   end
 
   @impl true
