@@ -4,13 +4,8 @@ defmodule Load.Application do
   @impl true
   @spec start(any, any) :: {:error, any} | {:ok, pid}
   def start(_type, _args) do
-    Load.Stats.init()
 
-    :hits |> :ets.new([:named_table, :public])
-    :hits |> :ets.insert({:sent, 0})
-    :hits |> :ets.insert({:errors, 0})
-    :history |> :ets.new([:named_table, :public])
-    :history |> :ets.insert({:rates, 0})
+    :pg.start(Load)
 
     children = [
       Plug.Cowboy.child_spec(
@@ -22,7 +17,11 @@ defmodule Load.Application do
         ]
       ),
       {DynamicSupervisor, strategy: :one_for_one, name: Load.Worker.Supervisor}, #, extra_arguments: [[a: :b]]}
-      {DynamicSupervisor, strategy: :one_for_one, name: Load.Connection.Supervisor}
+      {DynamicSupervisor, strategy: :one_for_one, name: Load.Connection.Supervisor},
+      %{id: :pg, start: {:pg, :start_link, []}},
+      %{id: LocalStats, start: {GenServer, :start_link, [Stats, %{group: Local}, []]}},
+      %{id: GlobalStats, start: {GenServer, :start_link, [Stats, %{group: Global, history: []}, []]}}
+
     ]
     opts = [strategy: :one_for_one, name: Load.Supervisor]
     Supervisor.start_link(children, opts)

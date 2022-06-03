@@ -25,8 +25,7 @@ defmodule Load do
     end)
   end
 
-  def q, do: Load.Stats.get_stats()
-
+  def q, do: Stats.get()
 
   def h, do:
     IO.puts(

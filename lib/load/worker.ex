@@ -6,12 +6,6 @@ defmodule Load.Worker do
 
   @connect_delay 200
   @req_timeout :timer.seconds(5)
-  @stats %{
-    last_ms: 0, # last time stats were collected
-    requests: 0,
-    succeeded: 0,
-    failed: 0
-  }
 
   def start_link(glob, args \\ []), do: GenServer.start_link(__MODULE__, glob ++ args |> Enum.into(%{}) )
 
@@ -31,8 +25,7 @@ defmodule Load.Worker do
       Application.get_env(:load, :worker_stats_timeunit, :seconds), [
       Application.get_env(:load, :worker_stats_interval, 1)
     ]))
-
-    |> Map.merge(stats())
+    |> Map.merge(Stats.empty())
 
     Process.send_after(self(), :connect, @connect_delay)
 
@@ -54,8 +47,8 @@ defmodule Load.Worker do
 
   def handle_info(:run, %{sim: sim, run_interval: run_interval} = state) do
     state = state
-    |> maybe_send_stats()
     |> sim.run()
+    |> Stats.maybe_update()
     Process.send_after(self(), :run, run_interval)
     {:noreply, state}
   end
@@ -105,26 +98,6 @@ defmodule Load.Worker do
 
     state = Map.put(state, :stats_errors, stats_errors + 1)
     {:noreply, state}
-
-  end
-
-  defp stats, do: @stats
-
-  defp maybe_send_stats(state) do
-
-    now = DateTime.utc_now |> DateTime.to_unix(:millisecond)
-    duration = now - state.last_ms
-    if duration > state.stats_interval_ms do
-      Load.Stats.update_stats(self(),
-        state
-        |> Map.take([:requests, :succeeded, :failed])
-        |> Map.put(:duration_since_last_update, duration)
-      )
-
-      Map.merge(state, %{stats() | last_ms: now})
-    else
-      state
-    end
 
   end
 

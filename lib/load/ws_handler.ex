@@ -7,6 +7,7 @@ defmodule Load.WSHandler do
   @impl true
   def init(req, _state) do
     state = %{caller: req.pid}
+    :pg.join(WS, self())
     Process.send_after(state.caller, :ping, 5000)
     {:cowboy_websocket, req, state}
   end
@@ -55,13 +56,21 @@ defmodule Load.WSHandler do
   end
 
   @impl true
-  def websocket_info(_message, state) do
+  def websocket_info({:update, stats}, state) do
+    Logger.info("forwarding stats")
+    {:reply, {:text, Jason.encode!(%{stats: stats})}, state}
+  end
+
+  @impl true
+  def websocket_info(message, state) do
+    Logger.warn("received  message:  #{inspect(message)}")
     {:ok, state}
   end
 
   @impl true
   def terminate(_reason, _req, _state) do
     Logger.info("terminated")
+    :pg.leave(WS, self())
     :ok
   end
 
