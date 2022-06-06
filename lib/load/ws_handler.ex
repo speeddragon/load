@@ -6,7 +6,7 @@ defmodule Load.WSHandler do
 
   @impl true
   def init(req, _state) do
-    state = %{caller: req.pid}
+    state = %{caller: req.pid, transport: :http, protocols: [:ilp_packet]}
     :pg.join(WS, self())
     Process.send_after(state.caller, :ping, 5000)
     {:cowboy_websocket, req, state}
@@ -42,7 +42,7 @@ defmodule Load.WSHandler do
           DynamicSupervisor.start_child(Load.Worker.Supervisor, {Load.Worker,
             host: "localhost",
             port: "8888",
-            opts: %{transport: :tcp, protocols: [:http]},
+            opts: %{transport: state.transport, protocols: state.protocols},
             sim: Example.EchoSim,
             run_interval: :timer.seconds(1)
           })
