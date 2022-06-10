@@ -28,10 +28,14 @@ defmodule Stats do
   @impl true
   def handle_info({:update, stats}, state) do
     Map.merge(state, stats, fn _k, v1, v2 -> v1 + v2 end)
-    case state.group do
-      Local -> maybe_update(state, WS)
-      Global -> maybe_update(state, nil)
-    end
+
+    state =
+      case state.group do
+        Local -> maybe_update(state, WS)
+        Global -> maybe_update(state, nil)
+      end
+
+    {:noreply, state}
   end
 
   @impl true
@@ -68,7 +72,7 @@ defmodule Stats do
 
   def get do
     :pg.get_local_members(Global)
-    |> Enum.each(&GenServer.call(&1, :get))
+    |> Enum.map(&GenServer.call(&1, :get))
   end
 
   defp safe_div(count, duration_ms) do

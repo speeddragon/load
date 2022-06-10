@@ -17,6 +17,8 @@ defmodule Load.Worker do
     |> Map.take([:opts, :sim])
     |> Map.put(:host, String.to_charlist(args.host))
     |> Map.put(:port, String.to_integer(args.port))
+    |> Map.put(:run_interval, args.run_interval)
+    |> Map.put(:stats_entries, 0)
     |> Map.put(:interval_ms, apply(:timer,
       Application.get_env(:load, :worker_timeunit, :seconds), [
       Application.get_env(:load, :worker_interval, 5)
@@ -32,16 +34,15 @@ defmodule Load.Worker do
     {:ok, state}
   end
 
-  def handle_info(:connect, %{host: host, port: port, opts: opts} = state) do
+  def handle_info(:connect, %{host: host, port: port, opts: _opts} = state) do
 
     # TODO handle as case
-    {:ok, conn} = :gun.open(host, port, opts)
+    {:ok, conn} = :gun.open(host, port)
     {:ok, _transport} = :gun.await_up(conn)
 
     Process.send_after(self(), :run, 0)
 
     {:noreply, Map.put(state, :conn, conn)}
-
   end
 
 
@@ -63,9 +64,8 @@ defmodule Load.Worker do
           "POST" ->
             Logger.debug("hitting http://#{host}:#{port}#{path}")
             post_ref = :gun.post(conn, "http://#{host}:#{port}#{path}", headers, payload)
-            :ets.update_counter(:hits, :sent, 1)
             g = :gun.await(conn, post_ref, @req_timeout)
-            {:ok, resp_payload} = handle_result(g, post_ref, state)
+            {:ok, resp_payload} = handle_http_result(g, post_ref, state)
             state = Map.put(state, :stats_entries, stats_entries + 1)
             {:ok, resp_payload, state}
           _ ->
@@ -76,9 +76,8 @@ defmodule Load.Worker do
         Logger.debug("hitting http://#{host}:#{port}#{target}")
 
         post_ref = :gun.post(conn, "http://#{host}:#{port}#{target}", headers, payload)
-        :ets.update_counter(:hits, :sent, 1)
         g = :gun.await(conn, post_ref, @req_timeout)
-        {:ok, resp_payload} = handle_result(g, post_ref, state)
+        {:ok, resp_payload} = handle_http_result(g, post_ref, state)
         state = Map.put(state, :stats_entries, stats_entries + 1)
         {:ok, resp_payload, state}
 
@@ -88,20 +87,23 @@ defmodule Load.Worker do
     end
   end
 
+  defp handle_http_result({:response, _, code, _resp_headers}, post_ref, %{conn: conn}) do
+    cond do
+      div(code, 100) == 2 ->
+        :gun.await_body(conn, post_ref, @req_timeout)
 
-  defp handle_result({:response, _, code, _resp_headers}, post_ref, %{conn: conn}) do
-    if div(code, 100) == 2 do
-      {:ok, resp_payload} = :gun.await_body(conn, post_ref, @req_timeout)
-      {:ok, resp_payload}
-    else
-      {:error, "reponse code #{code}"}
+      # this is returned when incorrect packet is sent
+      # we will allow this for now as we want to continue
+      # load testing even when receiving a Reject
+      code == 405 ->
+        :gun.await_body(conn, post_ref, @req_timeout)
+
+      :else ->
+        {:error, "reponse code #{code}"}
     end
-
   end
 
-  defp handle_result(reason,_, %{sleep_time: sleep_time, stats_errors: stats_errors} = state) do
-    :ets.update_counter(:hits, :errors, 1)
-
+  defp handle_http_result(reason,_, %{sleep_time: sleep_time, stats_errors: stats_errors} = state) do
     Logger.error("Error (#{inspect(self())}) #{inspect(reason)}")
 
     Process.send_after(self(), :loop, sleep_time)
