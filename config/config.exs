@@ -6,3 +6,5 @@ config :load, :worker_specs,
   opts: %{transport: :http, protocols: [:ilp_packet]},
   sim: Example.PacketSim,
   run_interval: :timer.seconds(1)
+
+config :load, ilp_path: "/accounts/alice/ilp"

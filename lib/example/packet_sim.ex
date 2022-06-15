@@ -20,9 +20,11 @@ defmodule Example.PacketSim do
 
     {:ok, payload} = IlpPacket.encode_prepare(data)
 
+    path = Application.get_env(:load, :ilp_path, "/send_money/ilp")
+
     {:ok, res_payload, new_state} =
       Load.Worker.hit(
-        "/send_money/ilp",
+        path,
         [{"content-type", "application/octet-stream"}],
         payload,
         state
