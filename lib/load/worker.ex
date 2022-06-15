@@ -99,7 +99,7 @@ defmodule Load.Worker do
         :gun.await_body(conn, post_ref, @req_timeout)
 
       :else ->
-        {:error, "reponse code #{code}"}
+        {:error, "response code #{code}"}
     end
   end
 

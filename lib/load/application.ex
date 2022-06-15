@@ -5,8 +5,6 @@ defmodule Load.Application do
   @spec start(any, any) :: {:error, any} | {:ok, pid}
   def start(_type, _args) do
 
-    :pg.start(Load)
-
     children = [
       Plug.Cowboy.child_spec(
         scheme: :http,
