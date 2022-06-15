@@ -96,11 +96,11 @@ defmodule Load.Worker do
       # this is returned when incorrect packet is sent
       # we will allow this for now as we want to continue
       # load testing even when receiving a Reject
-      code == 405 ->
+      :demo ->
         :gun.await_body(conn, post_ref, @req_timeout)
 
-      :else ->
-        {:error, "response code #{code}"}
+      # :else ->
+      #   {:error, "response code #{code}"}
     end
   end
 
