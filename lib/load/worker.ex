@@ -54,8 +54,9 @@ defmodule Load.Worker do
     {:noreply, state}
   end
 
-  def hit(target, headers, payload, %{host: host, port: port, conn: conn, stats_entries: stats_entries, opts: %{protocols: protocols, transport: transport}} = state) do
+  def hit(target, headers, payload, state) do
 
+    %{host: host, port: port, conn: conn, stats_entries: stats_entries, opts: %{protocols: protocols, transport: transport}} = state
 
     case {protocols, transport} do
       {[:http], :tcp} ->
