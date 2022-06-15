@@ -4,7 +4,7 @@ ARG MIX_ENV
 ARG REPO
 ARG TAG
 
-RUN apk update && apk add git
+RUN apk update && apk add git cargo pkgconfig openssl-dev
 
 ADD ./ src/
 RUN mix local.hex --force \
