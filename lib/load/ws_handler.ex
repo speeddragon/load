@@ -39,7 +39,7 @@ defmodule Load.WSHandler do
         end)
         1..count
         |> Enum.each(fn _ ->
-          DynamicSupervisor.start_child(Load.Worker.Supervisor, {Load.Worker, %{sim: Application.get_env(:load, :sim, Example.EchoSim)}})
+          DynamicSupervisor.start_child(Load.Worker.Supervisor, {Load.Worker, [sim: Application.get_env(:load, :sim, Example.EchoSim)]})
         end)
         {:reply, {:text, Jason.encode!(%{ok: :ok})}, state}
       _ ->

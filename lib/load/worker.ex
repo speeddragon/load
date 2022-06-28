@@ -73,6 +73,7 @@ defmodule Load.Worker do
         %{protocols: [:ilp_packet], transport: :tcp} ->
         {:ok,conn} = :gen_tcp.connect(host, port, [:binary])
         :gen_tcp.send(conn, payload)
+        {:ok, "no response", state}
 
       _ ->
         {:error , "not_implemented"}
