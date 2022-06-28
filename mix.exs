@@ -28,9 +28,7 @@ defmodule Load.MixProject do
       {:gun, "~> 2.0.0-rc.2"},
       {:jason, "~> 1.3"},
       {:plug_cowboy, "~> 2.5"},
-      {:ilp_packet, github: "everknow/ilp_packet"},
-      {:corsica, "~> 1.1"},
-      {:uuid, "1.1.8"}
+      {:corsica, "~> 1.1"}
     ]
   end
 end

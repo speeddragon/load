@@ -14,10 +14,7 @@ defmodule Load.Worker do
     Logger.debug("init called with args: #{inspect(args)}")
 
     state = args
-    |> Map.take([:opts, :sim])
-    |> Map.put(:host, String.to_charlist(args.host))
-    |> Map.put(:port, String.to_integer(args.port))
-    |> Map.put(:run_interval, args.run_interval)
+    |> Map.merge(args.sim.init())
     |> Map.put(:stats_entries, 0)
     |> Map.put(:interval_ms, apply(:timer,
       Application.get_env(:load, :worker_timeunit, :seconds), [
@@ -46,20 +43,20 @@ defmodule Load.Worker do
   end
 
 
-  def handle_info(:run, %{sim: sim, run_interval: run_interval} = state) do
+  def handle_info(:run, %{sim: sim, interval_ms: interval_ms} = state) do
     state = state
     |> sim.run()
     |> Stats.maybe_update()
-    Process.send_after(self(), :run, run_interval)
+    Process.send_after(self(), :run, interval_ms)
     {:noreply, state}
   end
 
   def hit(target, headers, payload, state) do
 
-    %{host: host, port: port, conn: conn, stats_entries: stats_entries, opts: %{protocols: protocols, transport: transport}} = state
+    %{host: host, port: port, conn: conn, stats_entries: stats_entries, opts: opts} = state
 
-    case {protocols, transport} do
-      {[:http], :tcp} ->
+    case opts do
+      %{protocols: [:http], transport: :tcp} ->
         [verb, path] = String.split(target, " ")
         case verb do
           "POST" ->
@@ -73,14 +70,9 @@ defmodule Load.Worker do
             {:error , "http tcp #{verb} not_implemented"}
         end
 
-      {[:ilp_packet], :http} ->
-        Logger.debug("hitting http://#{host}:#{port}#{target}")
-
-        post_ref = :gun.post(conn, "http://#{host}:#{port}#{target}", headers, payload)
-        g = :gun.await(conn, post_ref, @req_timeout)
-        {:ok, resp_payload} = handle_http_result(g, post_ref, state)
-        state = Map.put(state, :stats_entries, stats_entries + 1)
-        {:ok, resp_payload, state}
+        %{protocols: [:ilp_packet], transport: :tcp} ->
+        {:ok,conn} = :gen_tcp.connect(host, port, [:binary])
+        :gen_tcp.send(conn, payload)
 
       _ ->
         {:error , "not_implemented"}
